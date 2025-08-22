@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core\Controllers;
+namespace Leopard\Core\Controllers;
 
 /**
  * Abstract class ApiController

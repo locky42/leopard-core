@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core;
+namespace Leopard\Core;
 
 use Psr\Container\ContainerInterface;
 

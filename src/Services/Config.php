@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core\Services;
+namespace Leopard\Core\Services;
 
 use Symfony\Component\Yaml\Yaml;
 

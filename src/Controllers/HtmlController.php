@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Core\Controllers;
+namespace Leopard\Core\Controllers;
 
-use App\Core\View;
+use Leopard\Core\View;
 
 /**
  * Abstract class HtmlController

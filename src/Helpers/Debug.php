@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core\Helpers;
+namespace Leopard\Core\Helpers;
 
 /**
  * Debug class provides methods for debugging purposes.

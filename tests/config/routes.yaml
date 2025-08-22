@@ -1,0 +1,56 @@
+routes:
+  - path: /
+    method: GET
+    controller: Tests\TestController
+    action: test
+
+  - path: /test
+    method: GET
+    controller: Tests\TestController
+    action: test
+
+  - path: /test/data
+    method: POST
+    controller: Tests\TestController
+    action: postData
+
+  - path: /test/put
+    method: PUT
+    controller: Tests\TestController
+    action: testPut
+
+  - path: /test/delete
+    method: DELETE
+    controller: Tests\TestController
+    action: testDelete
+
+  - path: /test/options
+    method: OPTIONS
+    controller: Tests\TestController
+    action: testOptions
+
+  - path: /test/head
+    method: HEAD
+    controller: Tests\TestController
+    action: testHead
+
+  - path: /test/patch
+    method: PATCH
+    controller: Tests\TestController
+    action: testPatch
+
+  # Routes with variable parameters
+  - path: /user/{id}
+    method: GET
+    controller: Tests\TestController
+    action: getUser
+
+  - path: /post/{postId}/comment/{commentId}
+    method: GET
+    controller: Tests\TestController
+    action: getPostComment
+
+  - path: /product/{category}/{productId}
+    method: GET
+    controller: Tests\TestController
+    action: getProduct

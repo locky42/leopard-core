@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Core\Controllers;
+namespace Leopard\Core\Controllers;
 
-use App\Core\Container;
+use Leopard\Core\Container;
 
 /**
  * Abstract class AbstractController

@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core\Attributes;
+namespace Leopard\Core\Attributes;
 
 use Attribute;
 

@@ -1,8 +1,8 @@
 <?php
 
-namespace App\Core;
+namespace Leopard\Core;
 
-use App\Core\Attributes\Route as RouteAttribute;
+use Leopard\Core\Attributes\Route as RouteAttribute;
 use ReflectionClass;
 use RecursiveIteratorIterator;
 use RecursiveDirectoryIterator;

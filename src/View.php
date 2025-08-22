@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Core;
+namespace Leopard\Core;
 
 /**
  * The View class is responsible for handling the rendering of templates
