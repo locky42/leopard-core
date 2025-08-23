@@ -116,7 +116,7 @@ class Router
      */
     private function loadNamespaceControllers(string $namespace, string $basePath): void
     {
-        $dir = __DIR__ . '/../Controllers/' . $namespace;
+        $dir = $_SERVER['DOCUMENT_ROOT'] . '/../src/Controllers/' . $namespace;
         $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
 
         foreach ($iterator as $file) {
