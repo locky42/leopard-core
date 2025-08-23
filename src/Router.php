@@ -169,7 +169,7 @@ class Router
      */
     private function convertPathToClass(string $path): string
     {
-        $relative = str_replace([$_SERVER['DOCUMENT_ROOT'] . '/../../src/Controllers/', '.php'], '', $path);
+        $relative = str_replace([$_SERVER['DOCUMENT_ROOT'] . '/../src/Controllers/', '.php'], '', $path);
         $namespace = str_replace('/', '\\', $relative);
         return 'App\\Controllers\\' . $namespace;
     }

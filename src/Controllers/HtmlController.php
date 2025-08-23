@@ -41,7 +41,7 @@ abstract class HtmlController extends AbstractController
     public function __construct()
     {
         parent::__construct();
-        $this->view = new View(__DIR__ . '/../../../src/views/' . strtolower(explode('\\', static::class)[2]));
+        $this->view = new View($_SERVER['DOCUMENT_ROOT'] . '/../src/views/' . strtolower(explode('\\', static::class)[2]));
     }
 
     /**
