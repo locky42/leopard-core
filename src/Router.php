@@ -383,6 +383,9 @@ class Router
     private function createErrorResponse(Psr17Factory $factory, int $statusCode, string $message): ResponseInterface
     {
         $response = $factory->createResponse($statusCode);
+        $this->container->set('response', function () use ($response) {
+            return $response;
+        });
         $response->getBody()->write($message);
         return $response;
     }
