@@ -3,6 +3,9 @@
 namespace Leopard\Core\Controllers;
 
 use Leopard\Core\Container;
+use Nyholm\Psr7\Factory\Psr17Factory;
+use Nyholm\Psr7Server\ServerRequestCreator;
+use Nyholm\Psr7\ServerRequest;
 
 /**
  * Abstract class AbstractController
@@ -20,12 +23,33 @@ abstract class AbstractController
     protected Container $container;
 
     /**
+     * @var ServerRequest The current HTTP request instance.
+     */
+    protected ServerRequest $request;
+
+    /**
      * Constructor method for the AbstractController class.
      * Initializes the controller and sets up any necessary dependencies or configurations.
      */
     public function __construct()
     {
         $this->container = $GLOBALS['container'] ?? new Container();
+
+        $psr17Factory = new Psr17Factory();
+
+        $serverRequestCreator = new ServerRequestCreator(
+            $psr17Factory,
+            $psr17Factory,
+            $psr17Factory,
+            $psr17Factory
+        );
+        $request = $serverRequestCreator->fromGlobals();
+
+        $this->container->set('request', function () use ($request) {
+            return $request;
+        });
+
+        $this->request = $request;
     }
 
     /**
