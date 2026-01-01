@@ -53,6 +53,7 @@ abstract class HtmlController extends AbstractController
     public function setLayout(string $layout): void
     {
         $this->layout = $layout;
+        $this->view->setLayout($layout);
     }
 
     /**
