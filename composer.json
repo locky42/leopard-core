@@ -3,7 +3,7 @@
     "description": "Lightweight PHP framework core for routing, controllers, and application base.",
     "type": "library",
     "license": "MIT",
-    "version": "1.0.4",
+    "version": "1.0.5",
     "authors": [
       {
         "name": "Максим Зінченко",

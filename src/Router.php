@@ -242,11 +242,27 @@ class Router
                     $basePath = $this->namespaceToPath($controllerClass);
                 }
 
-                // handle index()
-                if (strtolower($methodName) === 'index') {
-                    $routePath = ($basePath === '/' || $basePath === '') ? '/' : $basePath;
+                // For namespace-based routing, always include controller name in path
+                // unless it's explicitly set in yamlControllers
+                $useControllerInPath = !array_key_exists($controllerClass, $this->yamlControllers) 
+                    || $this->yamlControllers[$controllerClass] !== '';
+                
+                if ($useControllerInPath) {
+                    // Use full namespace path (e.g., /amp/collections)
+                    $fullPath = $this->namespaceToPath($controllerClass);
+                    
+                    if (strtolower($methodName) === 'index') {
+                        $routePath = $fullPath;
+                    } else {
+                        $routePath = rtrim($fullPath, '/') . '/' . strtolower($methodName);
+                    }
                 } else {
-                    $routePath = rtrim($basePath, '/') . '/' . strtolower($methodName);
+                    // Use only basePath (for single controllers)
+                    if (strtolower($methodName) === 'index') {
+                        $routePath = ($basePath === '/' || $basePath === '') ? '/' : $basePath;
+                    } else {
+                        $routePath = rtrim($basePath, '/') . '/' . strtolower($methodName);
+                    }
                 }
             }
 
