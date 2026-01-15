@@ -2,6 +2,8 @@
 
 namespace Leopard\Core;
 
+use Leopard\Core\Services\Seo;
+
 /**
  * The View class is responsible for handling the rendering of templates
  * and managing the presentation layer of the application.
@@ -40,6 +42,11 @@ class View
     private array $scripts = [];
 
     /**
+     * @var Seo The SEO service instance for managing SEO metadata.
+     */
+    private Seo $seo;
+
+    /**
      * Constructor for the View class.
      *
      * @param string $viewsPath The path to the directory containing view files.
@@ -47,6 +54,7 @@ class View
     public function __construct(string $viewsPath)
     {
         $this->viewsPath = rtrim($viewsPath, '/');
+        $this->seo = new Seo();
     }
 
     /**
@@ -171,5 +179,15 @@ class View
     public function getScripts(): array
     {
         return $this->scripts;
+    }
+
+    /**
+     * Gets the SEO service instance.
+     *
+     * @return Seo The SEO service instance.
+     */
+    public function getSeo(): Seo
+    {
+        return $this->seo;
     }
 }

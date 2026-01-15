@@ -94,6 +94,149 @@ public function getUser(string $id): string
 
 ---
 
+### View
+
+The `View` class is responsible for rendering templates and managing the presentation layer. It supports layouts, blocks, and integration with the SEO service.
+
+#### Features:
+- **Template rendering** with data passing
+- **Layout system** for consistent page structure
+- **Block rendering** for reusable components
+- **CSS and JavaScript management**
+- **SEO metadata** through integrated Seo service
+
+#### Example:
+
+```php
+use Leopard\Core\View;
+
+$view = new View(__DIR__ . '/src/views');
+
+// Set custom layout
+$view->setLayout('layouts/admin');
+
+// Add styles and scripts
+$view->addStyle('/assets/css/main.css');
+$view->addScript('/assets/js/app.js');
+
+// Configure SEO
+$view->getSeo()->setTitle('Welcome Page');
+$view->getSeo()->setDescription('This is the homepage');
+$view->getSeo()->setKeywords(['php', 'framework', 'leopard']);
+
+// Render view
+echo $view->render('site/home', [
+    'username' => 'John',
+    'data' => ['foo' => 'bar']
+]);
+```
+
+#### Rendering Blocks:
+
+```php
+// In your layout file (layouts/main.php)
+<!DOCTYPE html>
+<html>
+<head>
+    <title><?= $this->getSeo()->getTitle() ?></title>
+</head>
+<body>
+    <?= $this->renderBlock('header') ?>
+    
+    <main><?= $content ?></main>
+    
+    <?= $this->renderBlock('footer') ?>
+</body>
+</html>
+```
+
+---
+
+### SEO
+
+The `Seo` service manages SEO metadata for your pages, including meta tags, Open Graph, Twitter Cards, and more.
+
+#### Features:
+- **Meta tags** management
+- **Open Graph** tags for social media
+- **Twitter Cards** support
+- **Canonical URLs**
+- **Keywords** management
+- **Robots** directives
+- **Charset** configuration
+
+#### Example:
+
+```php
+use Leopard\Core\Services\Seo;
+
+$seo = new Seo();
+
+// Basic SEO
+$seo->setTitle('My Awesome Page');
+$seo->setDescription('A detailed description of my page');
+$seo->setCanonicalUrl('https://example.com/page');
+$seo->setKeywords(['keyword1', 'keyword2', 'keyword3']);
+$seo->setRobots('index, follow');
+$seo->setCharset('UTF-8');
+
+// Add custom meta tags
+$seo->addMetaTag('author', 'John Doe');
+$seo->addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+
+// Open Graph tags
+$seo->addOpenGraphTag('og:title', 'My Awesome Page');
+$seo->addOpenGraphTag('og:type', 'website');
+$seo->addOpenGraphTag('og:url', 'https://example.com/page');
+$seo->addOpenGraphTag('og:image', 'https://example.com/image.jpg');
+
+// Twitter Cards
+$seo->addTwitterCard('twitter:card', 'summary_large_image');
+$seo->addTwitterCard('twitter:title', 'My Awesome Page');
+$seo->addTwitterCard('twitter:description', 'A detailed description');
+
+// Access in templates
+echo $seo->getTitle(); // "My Awesome Page"
+echo implode(', ', $seo->getKeywords()); // "keyword1, keyword2, keyword3"
+```
+
+#### Rendering SEO Tags in Layout:
+
+```php
+// In your layout file
+<head>
+    <meta charset="<?= $this->getSeo()->getCharset() ?? 'UTF-8' ?>">
+    <title><?= htmlspecialchars($this->getSeo()->getTitle() ?? 'Default Title') ?></title>
+    <meta name="description" content="<?= htmlspecialchars($this->getSeo()->getDescription() ?? '') ?>">
+    
+    <?php if ($this->getSeo()->getCanonicalUrl()): ?>
+        <link rel="canonical" href="<?= htmlspecialchars($this->getSeo()->getCanonicalUrl()) ?>">
+    <?php endif; ?>
+    
+    <?php if ($this->getSeo()->getRobots()): ?>
+        <meta name="robots" content="<?= htmlspecialchars($this->getSeo()->getRobots()) ?>">
+    <?php endif; ?>
+    
+    <?php if ($this->getSeo()->getKeywords()): ?>
+        <meta name="keywords" content="<?= htmlspecialchars(implode(', ', $this->getSeo()->getKeywords())) ?>">
+    <?php endif; ?>
+    
+    <?php foreach ($this->getSeo()->getMetaTags() as $name => $content): ?>
+        <meta name="<?= htmlspecialchars($name) ?>" content="<?= htmlspecialchars($content) ?>">
+    <?php endforeach; ?>
+    
+    <?php foreach ($this->getSeo()->getOpenGraphTags() as $property => $content): ?>
+        <meta property="<?= htmlspecialchars($property) ?>" content="<?= htmlspecialchars($content) ?>">
+    <?php endforeach; ?>
+    
+    <?php foreach ($this->getSeo()->getTwitterCards() as $name => $content): ?>
+        <meta name="<?= htmlspecialchars($name) ?>" content="<?= htmlspecialchars($content) ?>">
+    <?php endforeach; ?>
+</head>
+```
+
+---
+
 ## Usage Examples
 
 ### Loading Configuration
