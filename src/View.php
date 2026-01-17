@@ -3,6 +3,8 @@
 namespace Leopard\Core;
 
 use Leopard\Core\Services\Seo;
+use Leopard\Core\Events\AfterViewInit;
+use Leopard\Events\EventManager;
 
 /**
  * The View class is responsible for handling the rendering of templates
@@ -54,7 +56,8 @@ class View
     public function __construct(string $viewsPath)
     {
         $this->viewsPath = rtrim($viewsPath, '/');
-        $this->seo = new Seo();
+        $this->seo = $this->getSeo();
+        EventManager::doEvent(AfterViewInit::class, $this);
     }
 
     /**
@@ -188,6 +191,6 @@ class View
      */
     public function getSeo(): Seo
     {
-        return $this->seo;
+        return $this->seo ?? new Seo();
     }
 }
