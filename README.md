@@ -52,9 +52,66 @@ $logger = $container->get('logger');
 
 ### Routing
 
-The `Router` allows you to define routes using attributes and handle HTTP requests.
+The `Router` allows you to define routes using attributes, YAML configuration, and automatic route generation based on controller structure.
 
-#### Example:
+#### Routing Methods
+
+1. **Attribute-based routing** - Define routes using PHP attributes
+2. **YAML configuration** - Define routes and controller paths in YAML
+3. **Auto-routing** - Automatic route generation for methods ending with `Action` suffix
+
+#### Action Method Convention
+
+For auto-routing (YAML controllers), only methods ending with `Action` suffix are processed as routes:
+
+- **HTTP method prefix**: `get`, `post`, `put`, `delete`, `patch`, `options`, `head`
+- **Default method**: If no prefix is specified, `GET` is used by default
+- **Action name**: Formed by removing the HTTP method prefix (if any) and the `Action` suffix
+
+**Examples:**
+
+```php
+class UserController
+{
+    // GET /user/about
+    public function aboutAction(): string
+    {
+        return "About page";
+    }
+    
+    // GET /user/profile
+    public function getProfileAction(): string
+    {
+        return "User profile (GET)";
+    }
+    
+    // POST /user/profile
+    public function postProfileAction(): string
+    {
+        return "Update profile (POST)";
+    }
+    
+    // DELETE /user/account
+    public function deleteAccountAction(): string
+    {
+        return "Delete account";
+    }
+    
+    // GET /user (index is special case)
+    public function indexAction(): string
+    {
+        return "User index";
+    }
+    
+    // This method will NOT be routed (no Action suffix)
+    public function helperMethod(): string
+    {
+        return "Not a route";
+    }
+}
+```
+
+#### Attribute-based Routing Example:
 
 ```php
 use Leopard\Core\Router;
@@ -67,11 +124,47 @@ class TestController
     {
         return "Hello, world!";
     }
+    
+    #[Route('/user/{id}', method: 'GET')]
+    public function getUser(string $id): string
+    {
+        return "User ID: $id";
+    }
 }
 
-$router = new Router();
-$response = $router->dispatch('/test', 'GET');
-echo $response; // Outputs "Hello, world!"
+$router = new Router($container);
+$router->registerController(TestController::class);
+$response = $router->dispatch('GET', '/test');
+```
+
+#### YAML Configuration Example:
+
+```yaml
+routes:
+  - controller: User/ProfileController
+    action: show
+    method: GET
+    path: /profile/{id}
+
+controllers:
+  - controller: Site/PageController
+    path: /pages
+    
+  - namespace: Api
+    path: /api
+```
+
+#### Auto-routing with loadControllersFrom:
+
+```php
+$router = new Router($container);
+
+// Load all controllers from directory
+$router->loadControllersFrom(__DIR__ . '/src/Controllers');
+
+// Methods with Action suffix will be auto-registered
+// GET /test/about -> TestController::aboutAction()
+// POST /test/submit -> TestController::postSubmitAction()
 ```
 
 ---

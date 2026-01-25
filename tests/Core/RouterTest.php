@@ -8,6 +8,7 @@ use Nyholm\Psr7\ServerRequest;
 use Leopard\Core\Router;
 use Leopard\Core\Container;
 use Leopard\Core\Tests\Controllers\TestController;
+use Leopard\Core\Tests\Controllers\Test2Controller;
 
 class RouterTest extends TestCase
 {
@@ -18,9 +19,19 @@ class RouterTest extends TestCase
     protected function setUp(): void
     {
         $this->container = new Container();
-        $this->router = new Router($this->container);
         $this->psr17Factory = new Psr17Factory();
+        
+        // Set up PSR-17 factory in container for API controllers
+        $this->container->set('response', function () {
+            return (new Psr17Factory())->createResponse();
+        });
+        
+        // Make container available globally for controllers
+        $GLOBALS['container'] = $this->container;
+        
+        $this->router = new Router($this->container);
         $this->router->registerController(TestController::class);
+        $this->router->registerController(Test2Controller::class);
     }
 
     public function testGetTestRoute(): void
@@ -111,5 +122,88 @@ class RouterTest extends TestCase
 
         $this->assertEquals(200, $response->getStatusCode());
         $this->assertStringContainsString('Category: electronics, Product ID: 89', (string) $response->getBody());
+    }
+
+    public function testNotFoundRoute(): void
+    {
+        $request = new ServerRequest('GET', '/nonexistent/route');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+
+        $this->assertEquals(404, $response->getStatusCode());
+        $this->assertStringContainsString('404 Not Found', (string) $response->getBody());
+    }
+
+    public function testRouteControllers()
+    {
+        $request = new ServerRequest('GET', '/test2/info');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('Hello from Test2Controller::info', (string) $response->getBody());
+    }
+
+    public function testRouteNamespace()
+    {
+        // Load namespace configuration
+        $this->router->loadConfig([
+            'controllers' => [
+                [
+                    'namespace' => 'TestApi',
+                    'path' => '/api'
+                ]
+            ]
+        ]);
+        
+        // StatusController with statusAction() -> /api/status/status
+        $request = new ServerRequest('GET', '/api/status/status');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('API Status: OK', (string) $response->getBody());
+    }
+
+    public function testControllerWithPath()
+    {
+        // Load controller with specific path
+        $this->router->loadConfig([
+            'controllers' => [
+                [
+                    'controller' => 'ToolsController',
+                    'path' => '/tools'
+                ]
+            ]
+        ]);
+        
+        // Register the controller
+        $this->router->registerController(\Leopard\Core\Tests\Controllers\ToolsController::class);
+        
+        // Test /tools/hash -> hashAction()
+        $request = new ServerRequest('GET', '/tools/hash');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('Hash tool page', (string) $response->getBody());
+        
+        // Test /tools/profile with GET prefix -> getProfileAction()
+        $request = new ServerRequest('GET', '/tools/profile');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('GET Profile tool', (string) $response->getBody());
+        
+        // Test /tools/submit with POST prefix -> postSubmitAction()
+        $request = new ServerRequest('POST', '/tools/submit');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('POST Submit tool', (string) $response->getBody());
+        
+        // Test /tools -> indexAction()
+        $request = new ServerRequest('GET', '/tools');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+        $this->assertEquals(200, $response->getStatusCode());
+        $this->assertStringContainsString('Tools index', (string) $response->getBody());
+        
+        // Test that helperMethod is NOT routed (no Action suffix)
+        $request = new ServerRequest('GET', '/tools/helpermethod');
+        $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
+        $this->assertEquals(404, $response->getStatusCode());
     }
 }

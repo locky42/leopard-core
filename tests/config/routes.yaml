@@ -54,3 +54,10 @@ routes:
     method: GET
     controller: Tests\TestController
     action: getProduct
+
+controllers:
+  - controller: Tests\Test2Controller
+    path: /test2
+
+  - namespace: TestApi
+    path: /api

@@ -116,15 +116,38 @@ class Router
      */
     private function loadNamespaceControllers(string $namespace, string $basePath): void
     {
-        $dir = $_SERVER['DOCUMENT_ROOT'] . '/../src/Controllers/' . $namespace;
-        $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+        // Determine the base directory - use DOCUMENT_ROOT if available, otherwise use current working directory
+        $baseDir = $_SERVER['DOCUMENT_ROOT'] ?? getcwd();
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $baseDir = $_SERVER['DOCUMENT_ROOT'] . '/..';
+        } else {
+            // During tests, use the project root
+            $baseDir = dirname(__DIR__, 4); // Go up from vendor/locky42/leopard-core/src to project root
+        }
+        
+        // Try multiple possible base directories for namespace controllers
+        $possibleDirs = [
+            // Application controllers
+            $baseDir . '/src/Controllers/' . $namespace,
+            // Test controllers (leopard-core framework tests)
+            $baseDir . '/vendor/locky42/leopard-core/tests/Controllers/' . $namespace,
+        ];
 
-        foreach ($iterator as $file) {
-            if ($file->isFile() && str_ends_with($file->getFilename(), 'Controller.php')) {
-                $class = $this->convertPathToClass($file->getPathname());
-                if (class_exists($class)) {
-                    $this->yamlControllers[$class] = $basePath;
-                    $this->registerController($class);
+        foreach ($possibleDirs as $dir) {
+            if (!is_dir($dir)) {
+                continue;
+            }
+
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+
+            foreach ($iterator as $file) {
+                if ($file->isFile() && str_ends_with($file->getFilename(), 'Controller.php')) {
+                    $class = $this->convertPathToClass($file->getPathname());
+                    
+                    if (class_exists($class)) {
+                        $this->yamlControllers[$class] = $basePath;
+                        $this->registerController($class);
+                    }
                 }
             }
         }
@@ -159,17 +182,38 @@ class Router
     }
 
     /**
-     * Converts a file path to a fully qualified class name within the "App\Controllers" namespace.
+     * Converts a file path to a fully qualified class name.
      *
      * This method takes a file path, removes the base directory and file extension,
      * and transforms the remaining path into a namespace-compatible format.
+     * Supports both application controllers (App\Controllers) and test controllers
+     * (Leopard\Core\Tests\Controllers).
      *
      * @param string $path The absolute file path to be converted.
      * @return string The fully qualified class name corresponding to the given file path.
      */
     private function convertPathToClass(string $path): string
     {
-        $relative = str_replace([$_SERVER['DOCUMENT_ROOT'] . '/../src/Controllers/', '.php'], '', $path);
+        // Determine the base directory
+        $baseDir = $_SERVER['DOCUMENT_ROOT'] ?? getcwd();
+        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+            $baseDir = $_SERVER['DOCUMENT_ROOT'] . '/..';
+        } else {
+            // During tests, use the project root
+            $baseDir = dirname(__DIR__, 4);
+        }
+        
+        // Try to match test controllers path first
+        $testPath = $baseDir . '/vendor/locky42/leopard-core/tests/Controllers/';
+        if (str_starts_with($path, $testPath)) {
+            $relative = str_replace([$testPath, '.php'], '', $path);
+            $namespace = str_replace('/', '\\', $relative);
+            return 'Leopard\\Core\\Tests\\Controllers\\' . $namespace;
+        }
+        
+        // Otherwise, assume application controller
+        $appPath = $baseDir . '/src/Controllers/';
+        $relative = str_replace([$appPath, '.php'], '', $path);
         $namespace = str_replace('/', '\\', $relative);
         return 'App\\Controllers\\' . $namespace;
     }
@@ -233,35 +277,81 @@ class Router
 
             // 3. YAML controllers:
             if (!$routePath) {
+                // Only process methods ending with 'Action' for auto-routing
+                if (!str_ends_with($methodName, 'Action')) {
+                    continue;
+                }
+                
+                // Extract HTTP method from prefix and action name
+                $httpMethods = ['get', 'post', 'put', 'delete', 'patch', 'options', 'head'];
+                $actionName = $methodName;
+                
+                foreach ($httpMethods as $httpMethod) {
+                    if (stripos($methodName, $httpMethod) === 0) {
+                        $routeMethod = strtoupper($httpMethod);
+                        // Remove the HTTP method prefix and 'Action' suffix to get the action name
+                        $actionName = substr($methodName, strlen($httpMethod), -6); // -6 for 'Action'
+                        break;
+                    }
+                }
+                
+                // If no HTTP method prefix found, just remove 'Action' suffix
+                if ($actionName === $methodName) {
+                    $actionName = substr($methodName, 0, -6);
+                }
+                
+                // Convert empty action name or 'index' to special case
+                if ($actionName === '' || strtolower($actionName) === 'index') {
+                    $actionName = 'index';
+                }
+                
                 if (array_key_exists($controllerClass, $this->yamlControllers)) {
                     $basePath = $this->yamlControllers[$controllerClass];
-                    if (empty($basePath)) {
+                    
+                    // If basePath is null, generate from namespace
+                    if ($basePath === null) {
                         $basePath = $this->namespaceToPath($controllerClass);
                     }
-                } else {
-                    $basePath = $this->namespaceToPath($controllerClass);
-                }
-
-                // For namespace-based routing, always include controller name in path
-                // unless it's explicitly set in yamlControllers
-                $useControllerInPath = !array_key_exists($controllerClass, $this->yamlControllers) 
-                    || $this->yamlControllers[$controllerClass] !== '';
-                
-                if ($useControllerInPath) {
-                    // Use full namespace path (e.g., /amp/collections)
-                    $fullPath = $this->namespaceToPath($controllerClass);
                     
-                    if (strtolower($methodName) === 'index') {
-                        $routePath = $fullPath;
+                    // If basePath is '/', we need to include controller name in the path
+                    if ($basePath === '/') {
+                        // Extract just the controller name (without namespace parts)
+                        $parts = explode('\\', $controllerClass);
+                        $controllerName = end($parts);
+                        $controllerName = strtolower(preg_replace('/Controller$/', '', $controllerName));
+                        
+                        if (strtolower($actionName) === 'index') {
+                            $routePath = '/' . $controllerName;
+                        } else {
+                            $routePath = '/' . $controllerName . '/' . strtolower($actionName);
+                        }
+                    }
+                    // If basePath is empty string, use root
+                    elseif ($basePath === '') {
+                        if (strtolower($actionName) === 'index') {
+                            $routePath = '/';
+                        } else {
+                            $routePath = '/' . strtolower($actionName);
+                        }
                     } else {
-                        $routePath = rtrim($fullPath, '/') . '/' . strtolower($methodName);
+                        // Use the specified basePath + controller name
+                        $parts = explode('\\', $controllerClass);
+                        $controllerName = end($parts);
+                        $controllerName = strtolower(preg_replace('/Controller$/', '', $controllerName));
+                        
+                        if (strtolower($actionName) === 'index') {
+                            $routePath = rtrim($basePath, '/') . '/' . $controllerName;
+                        } else {
+                            $routePath = rtrim($basePath, '/') . '/' . $controllerName . '/' . strtolower($actionName);
+                        }
                     }
                 } else {
-                    // Use only basePath (for single controllers)
-                    if (strtolower($methodName) === 'index') {
-                        $routePath = ($basePath === '/' || $basePath === '') ? '/' : $basePath;
+                    // Not in YAML controllers, generate from namespace
+                    $basePath = $this->namespaceToPath($controllerClass);
+                    if (strtolower($actionName) === 'index') {
+                        $routePath = $basePath;
                     } else {
-                        $routePath = rtrim($basePath, '/') . '/' . strtolower($methodName);
+                        $routePath = rtrim($basePath, '/') . '/' . strtolower($actionName);
                     }
                 }
             }
@@ -280,19 +370,33 @@ class Router
     }
 
     /**
-     * Converts a fully qualified class name from the "App\Controllers" namespace 
-     * into a lowercase path string suitable for routing.
+     * Converts a fully qualified class name to a lowercase path string suitable for routing.
      *
-     * The method removes the "App\Controllers\" prefix, splits the remaining 
-     * namespace into segments, converts each segment to lowercase, and removes 
-     * the "Controller" suffix from the last segment.
+     * The method tries to remove common prefixes ("App\Controllers\" or ends with "\Controllers\"),
+     * splits the remaining namespace into segments, converts each segment to lowercase,
+     * and removes the "Controller" suffix from the last segment.
      *
      * @param string $class The fully qualified class name to be converted.
      * @return string The resulting path string, starting with a forward slash.
      */
     private function namespaceToPath(string $class): string
     {
+        // Try to remove App\Controllers\ prefix
         $trimmed = str_replace('App\\Controllers\\', '', $class);
+        
+        // If it didn't change, try to find and remove any \Controllers\ segment
+        if ($trimmed === $class) {
+            // Find the last occurrence of \Controllers\ and take everything after it
+            $pos = strrpos($class, '\\Controllers\\');
+            if ($pos !== false) {
+                $trimmed = substr($class, $pos + strlen('\\Controllers\\'));
+            } else {
+                // No Controllers namespace found, just use the class name
+                $parts = explode('\\', $class);
+                $trimmed = end($parts);
+            }
+        }
+        
         $segments = explode('\\', $trimmed);
         $segments = array_map(fn($s) => strtolower(preg_replace('/Controller$/', '', $s)), $segments);
         return '/' . implode('/', $segments);
@@ -376,8 +480,11 @@ class Router
                 
                 // Ensure the response body is a string
                 $responseBody = $responseBody ?? ''; // Default to an empty string if null
-                $this->container->get('response')->getBody()->write((string)$responseBody);
-                return $response;
+                
+                // Get the potentially updated response from the container
+                $finalResponse = $this->container->get('response');
+                $finalResponse->getBody()->write((string)$responseBody);
+                return $finalResponse;
             }
         }
 
