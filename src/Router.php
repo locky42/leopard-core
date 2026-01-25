@@ -385,6 +385,16 @@ class Router
     }
 
     /**
+     * Retrieves the list of registered routes.
+     *
+     * @return array The array of registered routes.
+     */
+    public function getRoutes(): array
+    {
+        return $this->routes;
+    }
+
+    /**
      * Creates a PSR-7 response with an error message.
      *
      * This method creates a response with the specified status code and message.

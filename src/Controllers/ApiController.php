@@ -18,6 +18,13 @@ abstract class ApiController extends AbstractController
      */
     protected string $responseType = 'json';
 
+    protected array $xmlSettings = [
+        'version' => '1.0',
+        'encoding' => 'UTF-8',
+        'rootElement' => 'root',
+        'rootAttributes' => [],
+    ];
+
     /**
      * Sets the response type for the API controller.
      *
@@ -30,6 +37,14 @@ abstract class ApiController extends AbstractController
     }
 
     /**
+     * Sets the XML settings for the API controller.
+     */
+    public function setXmlSettings(array $settings): void
+    {
+        $this->xmlSettings = array_merge($this->xmlSettings, $settings);
+    }
+
+    /**
      * Formats the given data into a string response.
      *
      * @param mixed $data The data to be formatted.
@@ -39,10 +54,13 @@ abstract class ApiController extends AbstractController
     {
         switch ($this->responseType) {
             case 'xml':
-                $xml = new \SimpleXMLElement('<root/>');
-                array_walk_recursive($data, function ($value, $key) use ($xml) {
-                    $xml->addChild($key, $value);
-                });
+                $xml = new \SimpleXMLElement(
+                    '<?xml version="' . $this->xmlSettings['version'] . '" encoding="' . $this->xmlSettings['encoding'] . '"?>
+                    <' . $this->xmlSettings['rootElement'] . '/>');
+                foreach ($this->xmlSettings['rootAttributes'] as $attrName => $attrValue) {
+                    $xml->addAttribute($attrName, $attrValue);
+                }
+                $this->xmlRecursive($xml, (array)$data);
                 $response = $this->get('response')->withHeader('Content-Type', 'application/xml');
                 $this->container->set('response', function () use ($response) {
                     return $response;
@@ -55,6 +73,29 @@ abstract class ApiController extends AbstractController
                     return $response;
                 });
                 return json_encode($data);
+        }
+    }
+
+    /**
+     * Recursively converts an array to XML elements.
+     *
+     * @param \SimpleXMLElement $xml The SimpleXMLElement to append to.
+     * @param array $data The data array to convert.
+     * @param string|null $key The key for the current element (used for nested arrays).
+     * @return void
+     */
+    protected function xmlRecursive(\SimpleXMLElement $xml, array $data, $key = null): void
+    {
+        foreach ($data as $dataKey => $value) {
+            $xmlElement = ($key !== null && !is_numeric($key)) ? $xml->addChild($key) : $xml;
+
+            if (is_array($value)) {
+                $this->xmlRecursive($xmlElement, $value, $dataKey);
+            } elseif (is_object($value)) {
+                $this->xmlRecursive($xmlElement, (array)$value, $dataKey);
+            } else {
+                $xmlElement->addChild($dataKey, htmlspecialchars($value));
+            }
         }
     }
 }
