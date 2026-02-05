@@ -303,6 +303,8 @@ class Router
                 // Convert empty action name or 'index' to special case
                 if ($actionName === '' || strtolower($actionName) === 'index') {
                     $actionName = 'index';
+                } else {
+                    $actionName = $this->actionNameToPath($actionName);
                 }
                 
                 if (array_key_exists($controllerClass, $this->yamlControllers)) {
@@ -323,7 +325,7 @@ class Router
                         if (strtolower($actionName) === 'index') {
                             $routePath = '/' . $controllerName;
                         } else {
-                            $routePath = '/' . $controllerName . '/' . strtolower($actionName);
+                            $routePath = '/' . $controllerName . '/' . $actionName;
                         }
                     }
                     // If basePath is empty string, use root
@@ -331,7 +333,7 @@ class Router
                         if (strtolower($actionName) === 'index') {
                             $routePath = '/';
                         } else {
-                            $routePath = '/' . strtolower($actionName);
+                            $routePath = '/' . $actionName;
                         }
                     } else {
                         // Use the specified basePath + controller name
@@ -342,7 +344,7 @@ class Router
                         if (strtolower($actionName) === 'index') {
                             $routePath = rtrim($basePath, '/') . '/' . $controllerName;
                         } else {
-                            $routePath = rtrim($basePath, '/') . '/' . $controllerName . '/' . strtolower($actionName);
+                            $routePath = rtrim($basePath, '/') . '/' . $controllerName . '/' . $actionName;
                         }
                     }
                 } else {
@@ -351,7 +353,7 @@ class Router
                     if (strtolower($actionName) === 'index') {
                         $routePath = $basePath;
                     } else {
-                        $routePath = rtrim($basePath, '/') . '/' . strtolower($actionName);
+                        $routePath = rtrim($basePath, '/') . '/' . $actionName;
                     }
                 }
             }
@@ -400,6 +402,17 @@ class Router
         $segments = explode('\\', $trimmed);
         $segments = array_map(fn($s) => strtolower(preg_replace('/Controller$/', '', $s)), $segments);
         return '/' . implode('/', $segments);
+    }
+
+    /**
+     * Converts action method names to URL path segments.
+     * Example: base64Encode -> base64-encode, foo_bar -> foo-bar
+     */
+    private function actionNameToPath(string $actionName): string
+    {
+        $withHyphens = preg_replace('/([a-z0-9])([A-Z])/', '$1-$2', $actionName);
+        $withHyphens = str_replace('_', '-', $withHyphens);
+        return strtolower($withHyphens);
     }
 
     /**
@@ -499,6 +512,25 @@ class Router
     public function getRoutes(): array
     {
         return $this->routes;
+    }
+
+    /** 
+     * Finds a route by its controller class and action name.
+     */
+    public function getRoute(string $controllerClass, string $actionName, bool $onlyPath = false): array|string|null
+    {
+        $filtered = array_filter(
+            $this->routes,
+            fn($route) => $route['controller'] === $controllerClass && $route['action'] === $actionName
+        );
+
+        if (!$filtered) {
+            return null;
+        }
+
+        $route = array_shift($filtered);
+
+        return $onlyPath ? $route['path'] : $route;
     }
 
     /**

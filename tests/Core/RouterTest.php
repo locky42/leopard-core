@@ -206,4 +206,25 @@ class RouterTest extends TestCase
         $response = $this->router->dispatch($request->getMethod(), $request->getUri()->getPath());
         $this->assertEquals(404, $response->getStatusCode());
     }
+
+    /**
+     * Test that getRoute() returns correct route information for a given controller and method, and returns null for non-existent routes.
+     */
+    public function testGetRoute(): void
+    {
+        $request = new ServerRequest('GET', '/test');
+        $route = $this->router->getRoute(\Leopard\Core\Tests\Controllers\TestController::class, 'test');
+        $this->assertNotNull($route);
+        $this->assertEquals('GET', $route['method']);
+        $this->assertEquals('/test', $route['path']);
+    }
+
+    /**
+     * Test that getRoute() returns null for a non-existent controller method.
+     */
+    public function testGetNonExistentRoute(): void
+    {
+        $route = $this->router->getRoute(\Leopard\Core\Tests\Controllers\TestController::class, 'nonExistentMethod');
+        $this->assertNull($route);
+    }
 }
