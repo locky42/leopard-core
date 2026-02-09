@@ -436,7 +436,9 @@ class Router
 
         foreach ($this->routes as $route) {
             if ($route['method'] !== strtoupper($method)) {
-                continue;
+                if (!(strtoupper($method) === 'HEAD' && $route['method'] === 'GET')) {
+                    continue;
+                }
             }
 
             if (preg_match($route['regex'], $uri, $matches)) {
