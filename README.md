@@ -11,6 +11,9 @@
   - [Dependency Injection Container](#dependency-injection-container)
   - [Routing](#routing)
   - [Attributes](#attributes)
+  - [ContractFactory](#contractfactory)
+  - [View](#view)
+  - [SEO](#seo)
 - [Usage Examples](#usage-examples)
 - [Testing](#testing)
 
@@ -182,6 +185,162 @@ use Leopard\Core\Attributes\Route;
 public function getUser(string $id): string
 {
     return "User ID: $id";
+}
+```
+
+---
+
+### ContractFactory
+
+The `ContractFactory` is a universal factory for creating instances through interface contracts. It enables flexible dependency management by allowing you to register and swap implementations without modifying existing code.
+
+#### Key Benefits:
+- **Flexibility** - Easily swap implementations
+- **Testability** - Create mock objects for testing
+- **Extensibility** - Add custom implementations
+- **Dependency Inversion** - Depend on abstractions, not concrete classes
+
+#### Basic Usage:
+
+```php
+use Leopard\Core\Factory\ContractFactory;
+
+// Define an interface
+interface LoggerInterface {
+    public function log(string $message): void;
+}
+
+// Create an implementation
+class FileLogger implements LoggerInterface {
+    public function log(string $message): void {
+        file_put_contents('app.log', $message . PHP_EOL, FILE_APPEND);
+    }
+}
+
+// Register the implementation
+ContractFactory::register(LoggerInterface::class, FileLogger::class);
+
+// Create instances through the factory
+$logger = ContractFactory::create(LoggerInterface::class);
+$logger->log('Application started');
+```
+
+#### Swapping Implementations:
+
+```php
+// Production logger
+class ProductionLogger implements LoggerInterface {
+    public function log(string $message): void {
+        // Send to external service
+    }
+}
+
+// Test logger
+class TestLogger implements LoggerInterface {
+    private array $logs = [];
+    
+    public function log(string $message): void {
+        $this->logs[] = $message;
+    }
+    
+    public function getLogs(): array {
+        return $this->logs;
+    }
+}
+
+// In production
+ContractFactory::register(LoggerInterface::class, ProductionLogger::class);
+
+// In tests
+ContractFactory::register(LoggerInterface::class, TestLogger::class);
+```
+
+#### Available Methods:
+
+- `register(string $interface, string $className): void` - Register an implementation
+- `create(string $interface): object` - Create an instance
+- `getMapping(string $interface): ?string` - Get registered class name
+- `hasMapping(string $interface): bool` - Check if interface is registered
+- `getMappings(): array` - Get all registered mappings
+- `unregister(string $interface): bool` - Unregister an interface
+- `clear(): void` - Clear all mappings
+- `reset(): void` - Reset to initial state
+
+#### Integration Example:
+
+```php
+use Leopard\Core\Factory\ContractFactory;
+use Leopard\User\Contracts\UserInterface;
+use Leopard\User\Models\User;
+
+// Register user models
+ContractFactory::register(UserInterface::class, User::class);
+
+// Use in your application
+class UserService {
+    public function createUser(array $data): UserInterface {
+        $user = ContractFactory::create(UserInterface::class);
+        $user->setPassword($data['password']);
+        return $user;
+    }
+}
+```
+
+#### Best Practices:
+
+1. **Always use `::class` syntax:**
+   ```php
+   // Good
+   ContractFactory::register(UserInterface::class, User::class);
+   
+   // Bad
+   ContractFactory::register('UserInterface', 'User');
+   ```
+
+2. **Register at application bootstrap:**
+   ```php
+   // bootstrap.php or similar
+   ContractFactory::register(UserInterface::class, User::class);
+   ContractFactory::register(LoggerInterface::class, FileLogger::class);
+   ```
+
+3. **Use type hints with interfaces:**
+   ```php
+   // Good - flexible
+   public function processUser(UserInterface $user) { }
+   
+   // Bad - tightly coupled
+   public function processUser(User $user) { }
+   ```
+
+4. **Clear mappings in tests:**
+   ```php
+   class MyTest extends TestCase {
+       protected function setUp(): void {
+           ContractFactory::clear();
+           ContractFactory::register(UserInterface::class, MockUser::class);
+       }
+       
+       protected function tearDown(): void {
+           ContractFactory::reset();
+       }
+   }
+   ```
+
+#### Error Handling:
+
+The factory throws `InvalidArgumentException` in these cases:
+- Class doesn't exist
+- Interface doesn't exist
+- Class doesn't implement the interface
+- No mapping found when creating instance
+
+```php
+try {
+    $user = ContractFactory::create(UserInterface::class);
+} catch (\InvalidArgumentException $e) {
+    // Handle: interface not registered
+    echo "Error: " . $e->getMessage();
 }
 ```
 
