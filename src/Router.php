@@ -80,12 +80,22 @@ class Router
         // Explicit routes
         if (!empty($config['routes'])) {
             foreach ($config['routes'] as $route) {
-                $controller = 'App\\Controllers\\' . $route['controller'];
+                $controller = $route['controller'];
+                if (str_starts_with($controller, '\\')) {
+                    $controller = ltrim($controller, '\\');
+                } else {
+                    $controller = 'App\\Controllers\\' . $controller;
+                }
+
                 $key = $controller . '::' . $route['action'];
                 $this->yamlRoutes[$key] = [
                     'method' => strtoupper($route['method']),
                     'path' => $route['path'],
                 ];
+                // If controller class exists, register it so its methods become routable
+                if (class_exists($controller)) {
+                    $this->registerController($controller);
+                }
             }
         }
 
@@ -95,8 +105,19 @@ class Router
                 if (isset($entry['namespace'])) {
                     $this->loadNamespaceControllers($entry['namespace'], $entry['path']);
                 } else {
-                    $controller = 'App\\Controllers\\' . $entry['controller'];
+                    $controller = $entry['controller'];
+                    if (str_starts_with($controller, '\\')) {
+                        $controller = ltrim($controller, '\\');
+                    } else {
+                        $controller = 'App\\Controllers\\' . $controller;
+                    }
+
                     $this->yamlControllers[$controller] = $entry['path'] ?? null;
+
+                    // If controller class exists, register it immediately
+                    if (class_exists($controller)) {
+                        $this->registerController($controller);
+                    }
                 }
             }
         }
@@ -121,8 +142,10 @@ class Router
         if (!empty($_SERVER['DOCUMENT_ROOT'])) {
             $baseDir = $_SERVER['DOCUMENT_ROOT'] . '/..';
         } else {
-            // During tests, use the project root
-            $baseDir = dirname(__DIR__, 4); // Go up from vendor/locky42/leopard-core/src to project root
+            // During tests, support both package source layout and vendor layout.
+            $baseDir = str_contains(__DIR__, '/vendor/')
+                ? dirname(__DIR__, 4)
+                : dirname(__DIR__, 3);
         }
         
         // Try multiple possible base directories for namespace controllers
@@ -199,8 +222,10 @@ class Router
         if (!empty($_SERVER['DOCUMENT_ROOT'])) {
             $baseDir = $_SERVER['DOCUMENT_ROOT'] . '/..';
         } else {
-            // During tests, use the project root
-            $baseDir = dirname(__DIR__, 4);
+            // During tests, support both package source layout and vendor layout.
+            $baseDir = str_contains(__DIR__, '/vendor/')
+                ? dirname(__DIR__, 4)
+                : dirname(__DIR__, 3);
         }
         
         // Try to match test controllers path first
@@ -573,7 +598,21 @@ class Router
     {
         $paramNames = [];
         $regex = preg_replace_callback('#\{([^}]+)\}#', function ($matches) use (&$paramNames) {
-            $paramNames[] = $matches[1];
+            $inside = $matches[1];
+            // Support {name:regex} syntax. Split only on first ':' to allow ':' inside regex.
+            if (str_contains($inside, ':')) {
+                [$name, $custom] = explode(':', $inside, 2);
+                $paramNames[] = $name;
+                return '(' . $custom . ')';
+            }
+
+            $name = $inside;
+            $paramNames[] = $name;
+            // If the parameter is named `path`, allow slashes inside it (greedy capture).
+            // Otherwise capture up to the next slash.
+            if ($name === 'path') {
+                return '(.+)';
+            }
             return '([^/]+)';
         }, $path);
         
