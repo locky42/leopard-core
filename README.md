@@ -157,6 +157,29 @@ controllers:
     path: /api
 ```
 
+#### YAML Controllers Behavior
+
+- `controllers[].controller` registers one конкретний контролер (relative to `App\\Controllers\\...`, or absolute FQCN if it starts with `\\`).
+- `controllers[].namespace` scans all `*Controller.php` in `src/Controllers/{Namespace}` and registers them with the same base path.
+- Only methods ending with `Action` are auto-routed from YAML controller definitions.
+- HTTP method prefix is detected from method name: `get|post|put|delete|patch|options|head`.
+- Special path handling for `path`:
+    - `path: /` → `/{controller}` and `/{controller}/{action}`
+    - `path: ""` → `/` and `/{action}`
+    - `path: /base` → `/base/{controller}` and `/base/{controller}/{action}`
+
+#### Dynamic Parameters in Paths
+
+The router supports these placeholders in route paths:
+
+- `{id}` - one URI segment (no slash)
+- `{id:\\d+}` - custom regex constraint
+- `{path}` - greedy capture including `/`
+
+If a parameter type in controller method is `int|float|bool` and conversion fails, router returns `404`.
+
+`HEAD` requests are allowed to match `GET` routes.
+
 #### Auto-routing with loadControllersFrom:
 
 ```php
@@ -257,7 +280,7 @@ ContractFactory::register(LoggerInterface::class, TestLogger::class);
 
 #### Available Methods:
 
-- `register(string $interface, string $className): void` - Register an implementation
+- `register(string $interface, string $className, array $doctrineMapping = []): void` - Register an implementation (and sync Doctrine mapping when available)
 - `create(string $interface): object` - Create an instance
 - `getMapping(string $interface): ?string` - Get registered class name
 - `hasMapping(string $interface): bool` - Check if interface is registered
@@ -270,8 +293,8 @@ ContractFactory::register(LoggerInterface::class, TestLogger::class);
 
 ```php
 use Leopard\Core\Factory\ContractFactory;
-use Leopard\User\Contracts\UserInterface;
-use Leopard\User\Models\User;
+use Leopard\User\Contracts\Models\UserInterface;
+use App\Models\User;
 
 // Register user models
 ContractFactory::register(UserInterface::class, User::class);
@@ -286,6 +309,32 @@ class UserService {
 }
 ```
 
+#### Doctrine Integration (auto ResolveTargetEntity)
+
+If `locky42/leopard-doctrine` is installed, `ContractFactory::register(...)` automatically forwards the mapping to `ResolveTargetEntityRegistry::addResolveTargetEntity(...)`.
+
+```php
+use Leopard\Core\Factory\ContractFactory;
+use Leopard\User\Contracts\Models\UserInterface;
+use App\Models\User;
+
+// Registers ContractFactory mapping
+// + auto-registers Doctrine resolve-target mapping
+ContractFactory::register(UserInterface::class, User::class);
+```
+
+You can also pass Doctrine mapping options as the third argument:
+
+```php
+ContractFactory::register(
+    UserInterface::class,
+    User::class,
+    ['fetch' => 'EAGER']
+);
+```
+
+In application projects, keep all contract mappings in one file (for example `config/contract-mappings.php`) and include it in bootstrap.
+
 #### Best Practices:
 
 1. **Always use `::class` syntax:**
@@ -299,9 +348,12 @@ class UserService {
 
 2. **Register at application bootstrap:**
    ```php
-   // bootstrap.php or similar
+    // config/contract-mappings.php
    ContractFactory::register(UserInterface::class, User::class);
    ContractFactory::register(LoggerInterface::class, FileLogger::class);
+
+    // bootstrap.php
+    require_once __DIR__ . '/config/contract-mappings.php';
    ```
 
 3. **Use type hints with interfaces:**
