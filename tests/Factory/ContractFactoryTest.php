@@ -3,6 +3,7 @@
 namespace Leopard\Core\Tests\Factory;
 
 use Leopard\Core\Factory\ContractFactory;
+use Leopard\Doctrine\ResolveTargetEntityRegistry;
 use PHPUnit\Framework\TestCase;
 
 /**
@@ -63,11 +64,17 @@ class ContractFactoryTest extends TestCase
     protected function setUp(): void
     {
         ContractFactory::clear();
+        if (class_exists(ResolveTargetEntityRegistry::class)) {
+            $this->resetResolveTargetMappings();
+        }
     }
 
     protected function tearDown(): void
     {
         ContractFactory::reset();
+        if (class_exists(ResolveTargetEntityRegistry::class)) {
+            $this->resetResolveTargetMappings();
+        }
     }
 
     public function testRegisterAndCreate(): void
@@ -228,5 +235,44 @@ class ContractFactoryTest extends TestCase
 
         $this->assertNotSame($entity1, $entity2);
         $this->assertEquals($entity1->getId(), $entity2->getId());
+    }
+
+    public function testRegisterSyncsResolveTargetEntityRegistryWhenAvailable(): void
+    {
+        if (!class_exists(ResolveTargetEntityRegistry::class)) {
+            $this->markTestSkipped('ResolveTargetEntityRegistry is not available in this test environment.');
+        }
+
+        ContractFactory::register(TestEntityInterface::class, TestEntity::class);
+
+        $mapping = ResolveTargetEntityRegistry::getMappingForInterface(TestEntityInterface::class);
+
+        $this->assertIsArray($mapping);
+        $this->assertEquals(TestEntity::class, $mapping['implementation']);
+        $this->assertEquals([], $mapping['mapping']);
+    }
+
+    public function testRegisterSyncsResolveTargetEntityRegistryWithDoctrineMapping(): void
+    {
+        if (!class_exists(ResolveTargetEntityRegistry::class)) {
+            $this->markTestSkipped('ResolveTargetEntityRegistry is not available in this test environment.');
+        }
+
+        $doctrineMapping = ['fetch' => 'EAGER'];
+        ContractFactory::register(TestEntityInterface::class, TestEntity::class, $doctrineMapping);
+
+        $mapping = ResolveTargetEntityRegistry::getMappingForInterface(TestEntityInterface::class);
+
+        $this->assertIsArray($mapping);
+        $this->assertEquals(TestEntity::class, $mapping['implementation']);
+        $this->assertEquals($doctrineMapping, $mapping['mapping']);
+    }
+
+    private function resetResolveTargetMappings(): void
+    {
+        $reflection = new \ReflectionClass(ResolveTargetEntityRegistry::class);
+        $property = $reflection->getProperty('mappings');
+        $property->setAccessible(true);
+        $property->setValue([]);
     }
 }

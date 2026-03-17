@@ -9,6 +9,11 @@ namespace Leopard\Core\Factory;
 class ContractFactory
 {
     /**
+     * Optional Doctrine resolve-target registry class.
+     */
+    private const RESOLVE_TARGET_ENTITY_REGISTRY = 'Leopard\\Doctrine\\ResolveTargetEntityRegistry';
+
+    /**
      * Registered interface-to-class mappings
      * @var array<string, string>
      */
@@ -39,9 +44,10 @@ class ContractFactory
      *
      * @param string $interface Interface name (e.g., UserInterface::class)
      * @param string $className Class name implementing the interface
+     * @param array<string, mixed> $doctrineMapping Optional Doctrine resolve-target mapping options
      * @throws \InvalidArgumentException If class doesn't exist or doesn't implement interface
      */
-    public static function register(string $interface, string $className): void
+    public static function register(string $interface, string $className, array $doctrineMapping = []): void
     {
         if (!class_exists($className)) {
             throw new \InvalidArgumentException(
@@ -63,6 +69,7 @@ class ContractFactory
         }
 
         self::$mappings[$interface] = $className;
+        self::syncResolveTargetEntityMapping($interface, $className, $doctrineMapping);
     }
 
     /**
@@ -121,5 +128,23 @@ class ContractFactory
     public static function reset(): void
     {
         self::clear();
+    }
+
+    /**
+     * Sync mapping into leopard-doctrine ResolveTargetEntityRegistry when available.
+     *
+     * Keeps leopard-core decoupled from leopard-doctrine by checking runtime availability.
+     *
+     * @param array<string, mixed> $doctrineMapping
+     */
+    private static function syncResolveTargetEntityMapping(string $interface, string $className, array $doctrineMapping = []): void
+    {
+        $registryClass = self::RESOLVE_TARGET_ENTITY_REGISTRY;
+
+        if (!class_exists($registryClass) || !method_exists($registryClass, 'addResolveTargetEntity')) {
+            return;
+        }
+
+        $registryClass::addResolveTargetEntity($interface, $className, $doctrineMapping);
     }
 }
