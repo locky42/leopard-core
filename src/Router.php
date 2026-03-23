@@ -217,29 +217,18 @@ class Router
      */
     private function convertPathToClass(string $path): string
     {
-        // Determine the base directory
-        $baseDir = $_SERVER['DOCUMENT_ROOT'] ?? getcwd();
-        if (!empty($_SERVER['DOCUMENT_ROOT'])) {
-            $baseDir = $_SERVER['DOCUMENT_ROOT'] . '/..';
+        $appPath = str_replace('\\', '/', realpath(__DIR__ . '/../../../../src/Controllers')) . '/';
+        $path = str_replace('\\', '/', realpath($path));
+
+        if (!str_starts_with($path, $appPath)) {
+            $relative = preg_replace('#^.*src/Controllers/#', '', $path);
         } else {
-            // During tests, support both package source layout and vendor layout.
-            $baseDir = str_contains(__DIR__, '/vendor/')
-                ? dirname(__DIR__, 4)
-                : dirname(__DIR__, 3);
+            $relative = substr($path, strlen($appPath));
         }
-        
-        // Try to match test controllers path first
-        $testPath = $baseDir . '/vendor/locky42/leopard-core/tests/Controllers/';
-        if (str_starts_with($path, $testPath)) {
-            $relative = str_replace([$testPath, '.php'], '', $path);
-            $namespace = str_replace('/', '\\', $relative);
-            return 'Leopard\\Core\\Tests\\Controllers\\' . $namespace;
-        }
-        
-        // Otherwise, assume application controller
-        $appPath = $baseDir . '/src/Controllers/';
-        $relative = str_replace([$appPath, '.php'], '', $path);
+
+        $relative = preg_replace('#\.php$#', '', $relative);
         $namespace = str_replace('/', '\\', $relative);
+
         return 'App\\Controllers\\' . $namespace;
     }
 
